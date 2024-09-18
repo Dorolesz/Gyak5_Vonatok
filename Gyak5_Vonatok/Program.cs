@@ -42,13 +42,33 @@ namespace Gyak5_Vonatok
                 Console.WriteLine($"Hiba történt: {e.Message}");
             }
 
+			// KövetkezŐ induló vonat
 			Vonat legkozelebbiVonat = KovIndVonat();
 			Console.WriteLine(legkozelebbiVonat != null ?
 			   $"Következő induló vonat: {legkozelebbiVonat.VonatSzam}" :
-			   "Nincs induló vonat.");
+			   "Nincs induló vonat.\n");
 
+			// Vonat a leghosszab utazási idővel
 			var leghosszabbUtazas = LeghosszabbIdo();
-			Console.WriteLine($"Leghosszabb utazás: Vonatszám: {leghosszabbUtazas.VonatSzam}, Időtartam: {leghosszabbUtazas.UtazasiIdo}");
+			Console.WriteLine($"Leghosszabb utazás: Vonatszám: {leghosszabbUtazas.VonatSzam}, Időtartam: {leghosszabbUtazas.UtazasiIdo}\n");
+
+			// Indulások egy adott időpont előtt
+			DateTime keresettIdo = DateTime.Now.AddHours(1); // Példa időpont, 1 óra múlva
+			ListazIndulElott(keresettIdo);
+
+			// Vonatok listázása egy adott útszakaszra
+			string keresettUtvonal = "Budapest-Debrecen"; // Példa útszakasz
+			ListazUtszakaszra(keresettUtvonal);
+
+			// Vonatok csoportosítása útvonal szerint
+			CsoportositasUtvonalSzerint();
+
+			// Utazások statisztikája
+			TimeSpan atlagosUtazasiIdo = AtlagosUtazasiIdo();
+			Console.WriteLine($"Átlagos utazási idő: {atlagosUtazasiIdo}");
+
+			// Vonat késése
+			IrjKesesFajlba("kesett_vonatok.csv");
 
 			Console.ReadKey();
 		}
@@ -76,6 +96,70 @@ namespace Gyak5_Vonatok
 				}
             }
 			return leghosszabbVonat;
-        } 
+        }
+
+		static void ListazIndulElott(DateTime ido)
+		{
+			var korabbiVonatok = vonatok.Where(v => v.IndulasiIdo < ido).ToList();
+            Console.WriteLine("Az időpont előtt induló vonatok:");
+
+			foreach (var vonat in korabbiVonatok)
+            {
+				Console.WriteLine($"Vonatszám: {vonat.VonatSzam}\n Indulás: {vonat.IndulasiIdo}\n Érkezés:{vonat.ErkezesiIdo}\n Útvonal: {vonat.Utvonal}\n Becsült utazási idő: {vonat.UtazasiIdo}\n");
+			}
+            Console.WriteLine("--------------------------------------------------");
+        }
+
+		static void ListazUtszakaszra(string utvonal)
+		{
+			var talalatok = vonatok.Where(v => v.Utvonal.Equals(utvonal, StringComparison.OrdinalIgnoreCase)).ToList();
+			Console.WriteLine($"Az útszakaszra ({utvonal}) közlekedő vonatok:");
+			foreach (var vonat in talalatok)
+			{
+				Console.WriteLine(vonat);
+			}
+			Console.WriteLine("--------------------------------------------------");
+
+		}
+
+		static void CsoportositasUtvonalSzerint()
+		{
+			var csoportositas = vonatok.GroupBy(v => v.Utvonal)
+										.ToDictionary(g => g.Key, g => g.ToList());
+
+			Console.WriteLine("Vonatok csoportosítva útvonal szerint:");
+
+			foreach (var csoport in csoportositas)
+			{
+				Console.WriteLine($"Útvonal: {csoport.Key}");
+				foreach (var vonat in csoport.Value)
+				{
+					Console.WriteLine($"Vonatszám: {vonat.VonatSzam}\n Indulás: {vonat.IndulasiIdo}\n Érkezés:{vonat.ErkezesiIdo}\n Útvonal: {vonat.Utvonal}\n Becsült utazási idő: {vonat.UtazasiIdo}\n");
+					;
+				}
+            }
+		}
+
+		static TimeSpan AtlagosUtazasiIdo()
+		{
+			if (vonatok.Count == 0)
+				return TimeSpan.Zero;
+
+			TimeSpan osszesUtazasiIdo = vonatok.Aggregate(TimeSpan.Zero, (sum, v) => sum + v.UtazasiIdo);
+			return TimeSpan.FromTicks(osszesUtazasiIdo.Ticks / vonatok.Count);
+		}
+
+		static void IrjKesesFajlba(string filePath)
+		{
+			using (StreamWriter sw = new StreamWriter(filePath))
+			{
+				foreach (var vonat in vonatok)
+				{
+					DateTime kesettErkezesiIdo = vonat.ErkezesiIdo.AddMinutes(15);
+					sw.WriteLine($"{vonat.VonatSzam},{vonat.IndulasiIdo},{kesettErkezesiIdo},{vonat.Utvonal}");
+				}
+			}
+			Console.WriteLine($"\nKéséssel kalkulált érkezési idők kiírva a '{filePath}' fájlba.");
+		}
 	}
 }
